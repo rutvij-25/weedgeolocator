@@ -4,6 +4,10 @@
 - The app uses a **YOLOv8** model to process large images tile-by-tile, extract weed locations, and export a **shapefile** with precise GPS coordinates.
 - This tool is designed for **precision agriculture**, enabling farmers and researchers to map weeds for **spot spraying** and **field analysis**.
 
+<video src="assets/websitevideo.mp4" controls width="600">
+  Your browser does not support the video tag.
+</video>
+
 ---
 
 ## Features
