@@ -3,7 +3,7 @@
 1)A **Streamlit**-based web application for detecting and geolocating weeds in **georeferenced orthomosaic GeoTIFF images** (e.g., from drone surveys).  
 2)The app uses a **YOLOv8** model to process large images tile-by-tile, extract weed locations, and export a **Shapefile** with precise GPS coordinates.  
 3)This tool is designed for **precision agriculture**, enabling farmers and researchers to map weeds for **spot spraying** and **field analysis**.
-4)Live on: https://huggingface.co/spaces/rutvij25/weed-geolocator
+4)Live on: https://huggingface.co/spaces/rutvij25/weed-geolocator.
 
 ![Weed Detection Demo](assets/websitevideo.gif)
 ---
