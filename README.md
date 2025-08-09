@@ -12,7 +12,7 @@ This tool is designed for **precision agriculture**, enabling farmers and resear
 - **Automatic GPS conversion** from UTM to WGS84
 - **Export shapefile** of detections for use in GIS software
 - **Interactive visualization** overlaying detections on the orthomosaic
-- **Currenlty supporting grass weeds only (I will add common ragweed, palmer amaranth and common lambsquaters soon)
+- Currenlty supporting grass weeds only (I will add common ragweed, palmer amaranth and common lambsquaters soon)
 
 ---
 
