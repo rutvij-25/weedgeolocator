@@ -29,3 +29,14 @@ Then
 ```bash
 streamlit run app.py
 ```
+
+Running with Docker
+```bash
+docker build -t weed-geo-app .
+```
+
+Run with container
+```bash
+docker run -p 8501:8501 weed-geo-app
+```
+
