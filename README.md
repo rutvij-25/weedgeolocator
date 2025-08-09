@@ -5,12 +5,6 @@ A **Streamlit**-based web application for detecting and geolocating weeds in **g
 The app uses a **YOLOv8** model to process large images tile-by-tile, extract weed locations, and export a **Shapefile** with precise GPS coordinates.  
 This tool is designed for **precision agriculture**, enabling farmers and researchers to map weeds for **spot spraying** and **field analysis**.
 
-
-<video src="assets/websitevideo.mp4" width="600" controls>
-  Your browser does not support the video tag. You can <a href="assets/websitevideo.mp4">download the video here</a>.
-</video>
-
-
 ---
 
 ## Features
