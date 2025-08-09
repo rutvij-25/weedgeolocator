@@ -1,0 +1,12 @@
+streamlit
+rasterio
+matplotlib
+pyproj
+plotly
+Pillow
+pandas
+numpy
+ultralytics==8.1.42
+torch==2.1.0
+geopandas
+shapely
