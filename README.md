@@ -23,3 +23,9 @@ Install dependencies from `requirements.txt`:
 
 ```bash
 pip install -r requirements.txt
+```
+Then
+
+```bash
+streamlit run app.py
+```
