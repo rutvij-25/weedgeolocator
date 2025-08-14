@@ -30,12 +30,13 @@ Then
 streamlit run app.py
 ```
 
-Running with Docker
+### Running with Docker
+Build an image
 ```bash
 docker build -t weed-geo-app .
 ```
 
-Run with container
+Run 
 ```bash
 docker run -p 8501:8501 weed-geo-app
 ```
