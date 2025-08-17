@@ -12,7 +12,7 @@
 - **YOLOv8-based detection** on tiled images for large raster handling
 - **Automatic GPS conversion** from UTM to WGS84
 - **Export Shapefile** of detections for use in GIS software
-- **Interactive visualization** overlaying detections on the orthomosaic
+- **Interactive visualization** overlaying detections on the orthomosaic and important KPIs
 - Currently supports **grass weeds** only (common ragweed, Palmer amaranth, and common lambsquarters coming soon)
 
 ---
