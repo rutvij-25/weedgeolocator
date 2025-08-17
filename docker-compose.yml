@@ -1,0 +1,59 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+  
+      MODEL_PATH: /models/best_STM.pt
+      YOLO_CONFIG_DIR: /tmp/ultralytics
+      ULTRALYTICS_RUNS_DIR: /data/runs
+      TILE_SIZE: "640"
+      WEED_CLASS_INDEX: "0"
+      BATCH_TILES: "8"
+      MAX_DISPLAY: "2048"
+      MAX_CELLS: "60000000"
+      
+      CORS_ORIGINS: http://localhost:8501,http://127.0.0.1:8501
+    volumes:
+      - ./models:/models:ro          
+      - api_runs:/data/runs         
+    ports:
+      - "8000:8000"
+    command: >
+      uvicorn main:app
+      --host 0.0.0.0
+      --port 8000
+      --timeout-keep-alive 65
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      API_BASE: http://api:8000
+      UI_DEBUG: "0"   
+    ports:
+      - "8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    command: >
+      streamlit run app.py
+      --server.address=0.0.0.0
+      --server.port=8501
+      --server.headless=true
+      --server.maxUploadSize=10240
+    restart: unless-stopped
+
+volumes:
+  api_runs:
