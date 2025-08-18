@@ -3,7 +3,7 @@ import io
 import base64
 import shutil
 from tempfile import NamedTemporaryFile, mkdtemp
-
+from pathlib import Path
 from typing import List
 
 from fastapi import FastAPI, UploadFile, File
@@ -28,12 +28,12 @@ BACKEND_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BACKEND_DIR.parent                     
 
 MODEL_PATH = PROJECT_ROOT / "models" / "best_STM.pt"
-
 TILE_SIZE = int(os.getenv("TILE_SIZE", "640"))
 WEED_CLASS_INDEX = int(os.getenv("WEED_CLASS_INDEX", "0"))
 BATCH_TILES = int(os.getenv("BATCH_TILES", "8"))
 MAX_DISPLAY = int(os.getenv("MAX_DISPLAY", "2048"))
 MAX_CELLS = int(os.getenv("MAX_CELLS", "60000000"))
+
 
 valid_settings = {
     "runs_dir": os.environ.get("ULTRALYTICS_RUNS_DIR", "/tmp/runs"),
