@@ -24,13 +24,16 @@ from rasterio.vrt import WarpedVRT
 from pyproj import CRS, Transformer
 from PIL import Image
 
-MODEL_PATH = os.getenv("MODEL_PATH", "best_STM.pt")
+BACKEND_DIR = Path(__file__).resolve().parent         
+PROJECT_ROOT = BACKEND_DIR.parent                     
+
+MODEL_PATH = PROJECT_ROOT / "models" / "best_STM.pt"
+
 TILE_SIZE = int(os.getenv("TILE_SIZE", "640"))
 WEED_CLASS_INDEX = int(os.getenv("WEED_CLASS_INDEX", "0"))
 BATCH_TILES = int(os.getenv("BATCH_TILES", "8"))
 MAX_DISPLAY = int(os.getenv("MAX_DISPLAY", "2048"))
 MAX_CELLS = int(os.getenv("MAX_CELLS", "60000000"))
-
 
 valid_settings = {
     "runs_dir": os.environ.get("ULTRALYTICS_RUNS_DIR", "/tmp/runs"),
