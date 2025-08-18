@@ -4,9 +4,6 @@ import base64
 import shutil
 from tempfile import NamedTemporaryFile, mkdtemp
 
-os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/ultralytics")
-os.environ.setdefault("ULTRALYTICS_RUNS_DIR", "/tmp/runs")
-
 from typing import List
 
 from fastapi import FastAPI, UploadFile, File
@@ -23,6 +20,9 @@ from rasterio.windows import Window
 from rasterio.vrt import WarpedVRT
 from pyproj import CRS, Transformer
 from PIL import Image
+
+os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/ultralytics")
+os.environ.setdefault("ULTRALYTICS_RUNS_DIR", "/tmp/runs")
 
 BACKEND_DIR = Path(__file__).resolve().parent         
 PROJECT_ROOT = BACKEND_DIR.parent                     
