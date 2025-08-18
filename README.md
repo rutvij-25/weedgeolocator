@@ -19,28 +19,34 @@
 - Currently supports **grass weeds** only (common ragweed, Palmer amaranth, and common lambsquarters coming soon)
 
 ---
-
-
-## Requirements
-Install dependencies from `requirements.txt`:
+## Run without docker
+Clone the repo and install dependencies from `requirements.txt`:
 
 ```bash
 pip install -r requirements.txt
 ```
-Then
+Then run frontend
 
 ```bash
-streamlit run app.py
+cd frontend
+streamlit run app.py --server.port=8080 --server.address=0.0.0.0 --server.maxUploadSize=10240
+```
+
+Then run backend
+
+```bash
+cd backend
+uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 ### Running with Docker
 Build an image
 ```bash
-docker build -t weed-geo-app .
+docker compose build --no-cache weed-geo 
 ```
 
 Run 
 ```bash
-docker run -p 8501:8501 weed-geo-app
+docker compose up weed-geo
 ```
 
