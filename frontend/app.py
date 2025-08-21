@@ -80,8 +80,7 @@ def save_uploaded_to_temp(uploaded_file) -> tuple[str, str]:
     suffix = pathlib.Path(safe_name).suffix or ".tif"
     uploaded_file.seek(0)
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        # copy in chunks to avoid reading whole file into memory
-        shutil.copyfileobj(uploaded_file, tmp, length=16 * 1024 * 1024)  # 16MB chunks
+        shutil.copyfileobj(uploaded_file, tmp, length=16 * 1024 * 1024) 
         return tmp.name, safe_name
 
 def post_file_resilient(infer_url: str, temp_path: str, safe_name: str) -> dict:
@@ -138,7 +137,7 @@ def post_file_resilient(infer_url: str, temp_path: str, safe_name: str) -> dict:
 
     raise RuntimeError("Upload failed. Please verify the backend is reachable and try again.") from last_exc
 
-# ---------- UI ----------
+
 st.markdown("""
 ### 📍 Weed Detection and Geolocation App
 This application allows you to upload a georeferenced **orthomosaic TIFF image** (e.g., from a drone),
