@@ -1,8 +1,9 @@
-name: Deploy on EC2
+# .github/workflows/cd.yml
+name: Deploy to EC2 (Docker Compose)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ]   # change if your default branch is different
   workflow_dispatch: {}
 
 concurrency:
@@ -12,38 +13,80 @@ concurrency:
 env:
   EC2_PATH: /opt/app
   SSH_PORT: 22
+  # Expose secrets as env (not printed unless you echo them)
+  EC2_HOST: ${{ secrets.EC2_HOST }}
+  EC2_USER: ${{ secrets.EC2_USER }}
+  EC2_PORT: ${{ secrets.EC2_PORT }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Start ssh-agent
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start ssh-agent and add key
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Trust EC2 host
+      - name: Add EC2 host key to known_hosts
         run: |
+          set -euo pipefail
+          : "${EC2_HOST:?EC2_HOST secret is not set}"
+          PORT="${EC2_PORT:-${SSH_PORT}}"
           mkdir -p ~/.ssh
-          ssh-keyscan -p ${EC2_PORT:-${SSH_PORT}} -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -T 5 -p "$PORT" -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
       - name: Rsync project to EC2
         run: |
-          RSYNC_RSH="ssh -p ${EC2_PORT:-${SSH_PORT}}"
+          set -euo pipefail
+          PORT="${EC2_PORT:-${SSH_PORT}}"
+          RSYNC_RSH="ssh -p $PORT -o StrictHostKeyChecking=accept-new"
+          # Exclude typical junk and keep server .env (if you store secrets there)
           rsync -az --delete \
-            --exclude '.git' --exclude '.github' \
-            --exclude '__pycache__' --exclude '.venv' \
-            ./ "${{ secrets.EC2_USER }}"@"${{ secrets.EC2_HOST }}":"$EC2_PATH"
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '__pycache__' \
+            --exclude '.venv' \
+            --exclude '.DS_Store' \
+            --exclude '.env' \
+            -e "$RSYNC_RSH" \
+            ./ "${EC2_USER:-ubuntu}@${EC2_HOST}:$EC2_PATH"
 
-      - name: Build & restart with Compose on EC2
+      - name: Ensure Docker & Compose on EC2 (Ubuntu-friendly)
         run: |
-          ssh -p ${EC2_PORT:-${SSH_PORT}} "${{ secrets.EC2_USER }}"@"${{ secrets.EC2_HOST }}" bash -lc '
+          set -euo pipefail
+          PORT="${EC2_PORT:-${SSH_PORT}}"
+          ssh -p "$PORT" "${EC2_USER:-ubuntu}@${EC2_HOST}" bash -lc '
+            set -euo pipefail
+            if ! command -v docker >/dev/null 2>&1; then
+              # Install Docker CE + Compose plugin (for Ubuntu/Debian)
+              sudo apt-get update -y
+              sudo apt-get install -y ca-certificates curl
+              sudo install -m 0755 -d /etc/apt/keyrings
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc >/dev/null
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+              $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
+              sudo apt-get update -y
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+              sudo usermod -aG docker "$USER" || true
+            fi
+            docker --version
+            docker compose version
+          '
+
+      - name: Build & restart via Docker Compose on EC2
+        run: |
+          set -euo pipefail
+          PORT="${EC2_PORT:-${SSH_PORT}}"
+          ssh -p "$PORT" "${EC2_USER:-ubuntu}@${EC2_HOST}" bash -lc '
             set -euo pipefail
             cd "$EC2_PATH"
-            docker compose pull || true         # in case some services use images
-            docker compose build                # build images defined by Dockerfiles
-            docker compose up -d                # recreate only if needed
+            # Pull remote images (if any), build local ones, then up -d
+            docker compose pull || true
+            docker compose build --pull
+            docker compose up -d
             docker compose ps
           '
