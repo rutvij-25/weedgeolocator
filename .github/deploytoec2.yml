@@ -1,9 +1,8 @@
-
-name: Deploy to EC2
+name: Deploy on EC2
 
 on:
   push:
-    branches: [ main ]     
+    branches: [ main ]
   workflow_dispatch: {}
 
 concurrency:
@@ -11,57 +10,40 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  EC2_PATH: /opt/app               
-  SERVICE_NAME: streamlit          
+  EC2_PATH: /opt/app
   SSH_PORT: 22
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Start ssh-agent and add key
+      - name: Start ssh-agent
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Trust EC2 host key
+      - name: Trust EC2 host
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -p ${EC2_PORT:-${SSH_PORT}} -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Rsync code to EC2
+      - name: Rsync project to EC2
         run: |
           RSYNC_RSH="ssh -p ${EC2_PORT:-${SSH_PORT}}"
           rsync -az --delete \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude '__pycache__' \
-            --exclude '.venv' \
+            --exclude '.git' --exclude '.github' \
+            --exclude '__pycache__' --exclude '.venv' \
             ./ "${{ secrets.EC2_USER }}"@"${{ secrets.EC2_HOST }}":"$EC2_PATH"
 
-      - name: Install deps and restart service
+      - name: Build & restart with Compose on EC2
         run: |
-          ssh -p ${EC2_PORT:-${SSH_PORT}} "${{ secrets.EC2_USER }}"@"${{ secrets.EC2_HOST }}" bash -s <<EOF
-          set -euo pipefail
-          cd "$EC2_PATH"
-
-          # Create/activate venv and install requirements if present
-          if [ -f requirements.txt ]; then
-            python3 -m venv .venv || true
-            . .venv/bin/activate
-            python -m pip install --upgrade pip wheel
-            python -m pip install -r requirements.txt
-          fi
-
-          # Optional: run a deploy script if you have one
-          if [ -x ./deploy.sh ]; then
-            bash ./deploy.sh
-          fi
-
-          # Restart your systemd service
-          sudo systemctl restart "$SERVICE_NAME"
-          systemctl --no-pager --full status "$SERVICE_NAME" | sed -n '1,40p'
-          EOF
+          ssh -p ${EC2_PORT:-${SSH_PORT}} "${{ secrets.EC2_USER }}"@"${{ secrets.EC2_HOST }}" bash -lc '
+            set -euo pipefail
+            cd "$EC2_PATH"
+            docker compose pull || true         # in case some services use images
+            docker compose build                # build images defined by Dockerfiles
+            docker compose up -d                # recreate only if needed
+            docker compose ps
+          '
