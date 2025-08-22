@@ -3,7 +3,7 @@ name: Deploy to EC2 (Docker Compose)
 
 on:
   push:
-    branches: [ main ]   # change if your default branch is different
+    branches: [ main ]
   workflow_dispatch: {}
 
 concurrency:
@@ -38,12 +38,17 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -T 5 -p "$PORT" -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
+      - name: Prepare remote path
+        run: |
+          set -euo pipefail
+          PORT="${EC2_PORT:-${SSH_PORT}}"
+          ssh -p "$PORT" "${EC2_USER:-ec2-user}@${EC2_HOST}" "mkdir -p '$EC2_PATH'"
+
       - name: Rsync project to EC2
         run: |
           set -euo pipefail
           PORT="${EC2_PORT:-${SSH_PORT}}"
           RSYNC_RSH="ssh -p $PORT -o StrictHostKeyChecking=accept-new"
-          # Exclude typical junk and keep server .env (if you store secrets there)
           rsync -az --delete \
             --exclude '.git' \
             --exclude '.github' \
@@ -52,34 +57,40 @@ jobs:
             --exclude '.DS_Store' \
             --exclude '.env' \
             -e "$RSYNC_RSH" \
-            ./ "${EC2_USER:-ubuntu}@${EC2_HOST}:$EC2_PATH"
+            ./ "${EC2_USER:-ec2-user}@${EC2_HOST}:$EC2_PATH"
 
-      - name: Ensure Docker & Compose on EC2 (Ubuntu-friendly)
+      - name: Ensure Docker & Compose on EC2 (Amazon Linux 2023)
         run: |
           set -euo pipefail
           PORT="${EC2_PORT:-${SSH_PORT}}"
-          ssh -p "$PORT" "${EC2_USER:-ubuntu}@${EC2_HOST}" bash -lc '
+          ssh -p "$PORT" "${EC2_USER:-ec2-user}@${EC2_HOST}" bash -lc '
             set -euo pipefail
+
+            # Install & start Docker
             if ! command -v docker >/dev/null 2>&1; then
-              if command -v apt-get >/dev/null 2>&1; then
-                # Ubuntu/Debian
-                sudo apt-get update -y
-                sudo apt-get install -y ca-certificates curl
-                sudo install -m 0755 -d /etc/apt/keyrings
-                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc >/dev/null
-                echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-                $(. /etc/os-release && echo $VERSION_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null
-                sudo apt-get update -y
-                sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-                sudo usermod -aG docker \"$USER\" || true
-              elif command -v yum >/dev/null 2>&1; then
-                # Amazon Linux/CentOS
-                sudo yum update -y
-                sudo yum install -y docker docker-compose-plugin
-                sudo service docker start
-                sudo usermod -aG docker \"$USER\" || true                
+              if command -v dnf >/dev/null 2>&1; then
+                sudo dnf -y install docker
+              else
+                sudo yum -y install docker
               fi
             fi
+            sudo systemctl enable --now docker
+            sudo usermod -aG docker "$USER" || true
+
+            # Install Docker Compose v2 plugin if missing
+            if ! docker compose version >/dev/null 2>&1; then
+              ARCH="$(uname -m)"; case "$ARCH" in
+                x86_64)  COMP_ARCH=x86_64 ;;
+                aarch64|arm64) COMP_ARCH=aarch64 ;;
+                *) echo "Unsupported arch: $ARCH"; exit 1 ;;
+              esac
+              V="v2.29.7"
+              sudo mkdir -p /usr/local/lib/docker/cli-plugins
+              sudo curl -fsSL "https://github.com/docker/compose/releases/download/${V}/docker-compose-linux-${COMP_ARCH}" \
+                -o /usr/local/lib/docker/cli-plugins/docker-compose
+              sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+            fi
+
             docker --version
             docker compose version
           '
@@ -88,12 +99,12 @@ jobs:
         run: |
           set -euo pipefail
           PORT="${EC2_PORT:-${SSH_PORT}}"
-          ssh -p "$PORT" "${EC2_USER:-ubuntu}@${EC2_HOST}" bash -lc '
+          ssh -p "$PORT" "${EC2_USER:-ec2-user}@${EC2_HOST}" bash -lc '
             set -euo pipefail
             cd "$EC2_PATH"
-            # Pull remote images (if any), build local ones, then up -d
-            docker compose pull || true
-            docker compose build --pull
-            docker compose up -d
-            docker compose ps
+            # Use sudo in case docker group membership hasn’t applied to this session
+            sudo docker compose pull || true
+            sudo docker compose build --pull
+            sudo docker compose up -d
+            sudo docker compose ps
           '
