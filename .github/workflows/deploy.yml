@@ -11,10 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  EC2_PATH: "/home/ec2-user/app"
   SSH_PORT: 22
   EC2_HOST: ${{ secrets.EC2_HOST }}
-  EC2_USER: "ec2-user"
   EC2_PORT: ${{ secrets.EC2_PORT }}
 
 jobs:
@@ -25,12 +23,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate required env
+      - name: Validate required secrets
         run: |
           set -euo pipefail
           : "${EC2_HOST:?Set EC2_HOST in repo secrets}"
-          : "${EC2_USER:?Set EC2_USER (e.g., ec2-user)}"
-          : "${EC2_PATH:?Set EC2_PATH (e.g., /home/ec2-user/app)}"
 
       - name: Start ssh-agent and add key
         uses: webfactory/ssh-agent@v0.9.0
@@ -44,12 +40,11 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -T 5 -p "$PORT" -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
-      - name: Prepare remote path
+      - name: Prepare remote path (/home/ec2-user/app)
         run: |
           set -euo pipefail
           PORT="${EC2_PORT:-${SSH_PORT}}"
-          # Expand EC2_PATH locally (double quotes)
-          ssh -p "$PORT" "${EC2_USER}@${EC2_HOST}" "mkdir -p \"$EC2_PATH\" && ls -ld \"$EC2_PATH\""
+          ssh -p "$PORT" ec2-user@"$EC2_HOST" 'mkdir -p /home/ec2-user/app && ls -ld /home/ec2-user/app'
 
       - name: Rsync project to EC2
         run: |
@@ -64,14 +59,16 @@ jobs:
             --exclude '.DS_Store' \
             --exclude '.env' \
             -e "$RSYNC_RSH" \
-            ./ "${EC2_USER}@${EC2_HOST}:\"$EC2_PATH\""
+            ./ ec2-user@"$EC2_HOST":/home/ec2-user/app
 
       - name: Ensure Docker & Compose on EC2 (Amazon Linux 2023)
         run: |
           set -euo pipefail
           PORT="${EC2_PORT:-${SSH_PORT}}"
-          ssh -p "$PORT" "${EC2_USER}@${EC2_HOST}" bash -lc '
+          ssh -p "$PORT" ec2-user@"$EC2_HOST" bash -lc '
             set -euo pipefail
+
+            # Install & start Docker
             if ! command -v docker >/dev/null 2>&1; then
               if command -v dnf >/dev/null 2>&1; then
                 sudo dnf -y install docker
@@ -81,6 +78,8 @@ jobs:
             fi
             sudo systemctl enable --now docker
             sudo usermod -aG docker "$USER" || true
+
+            # Install Docker Compose v2 plugin if missing
             if ! docker compose version >/dev/null 2>&1; then
               ARCH="$(uname -m)"; case "$ARCH" in
                 x86_64)  COMP_ARCH=x86_64 ;;
@@ -93,6 +92,7 @@ jobs:
                 -o /usr/local/lib/docker/cli-plugins/docker-compose
               sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
             fi
+
             docker --version
             docker compose version
           '
@@ -101,7 +101,11 @@ jobs:
         run: |
           set -euo pipefail
           PORT="${EC2_PORT:-${SSH_PORT}}"
-          # Expand EC2_PATH locally; no $EC2_PATH in remote bash -lc with -u
-          ssh -p "$PORT" "${EC2_USER}@${EC2_HOST}" "cd \"$EC2_PATH\" && sudo docker compose pull || true"
-          ssh -p "$PORT" "${EC2_USER}@${EC2_HOST}" "cd \"$EC2_PATH\" && sudo docker compose build --pull"
-          ssh -p "$PORT" "${EC2_USER}@${EC2_HOST}" "cd \"$EC2_PATH\" && sudo docker compose up -d && sudo docker compose ps"
+          ssh -p "$PORT" ec2-user@"$EC2_HOST" '
+            set -euo pipefail
+            cd /home/ec2-user/app
+            sudo docker compose pull || true
+            sudo docker compose build --pull
+            sudo docker compose up -d
+            sudo docker compose ps
+          '
